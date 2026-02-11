@@ -63,124 +63,202 @@
  <body class="h-full font-body">
   <div id="saving-indicator"></div>
   <div id="app" class="h-full w-full"></div>
-  
+
+  <!-- Auth overlay (Supabase) -->
+  <div id="auth-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background: rgba(0,0,0,0.75);">
+    <div class="w-full max-w-md rounded-2xl p-6" style="background: #16213e; border: 2px solid #f59e0b;">
+      <h2 class="font-display tracking-wider mb-2" style="font-size: 34px; color: #ffffff;">Connexion</h2>
+      <p class="mb-4" style="color: rgba(255,255,255,0.8);">Entre ton email. Tu recevras un lien magique pour te connecter.</p>
+      <input id="auth-email" type="email" placeholder="ex: prenom.nom@exemple.fr"
+             class="w-full rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2"
+             style="background:#1a1a2e; color:#ffffff; border:2px solid rgba(245,158,11,0.35);">
+      <div class="flex gap-2">
+        <button onclick="sendMagicLink()" class="flex-1 px-4 py-2 rounded-lg font-semibold transition-all duration-300 hover:scale-105"
+                style="background:#f59e0b; color:#1a1a2e;">Envoyer le lien</button>
+        <button onclick="logout()" class="px-4 py-2 rounded-lg font-semibold transition-all duration-300 hover:scale-105"
+                style="background:#dc2626; color:#ffffff;">Déconnexion</button>
+      </div>
+      <p id="auth-status" class="mt-3" style="color: rgba(255,255,255,0.85); font-weight: 600;"></p>
+      <p class="mt-4 text-sm" style="color: rgba(255,255,255,0.65);">
+        ⚠️ Si le lien ne fonctionne pas, ajoute l’URL de ton site GitHub Pages dans Supabase → Auth → URL Configuration → Redirect URLs.
+      </p>
+    </div>
+  </div>
+
+
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
-  // ---- Google Sheets Data SDK (drop-in replacement for Canva data_sdk.js) ----
-  // 1) Deploy the provided Google Apps Script as a Web App.
-  // 2) Paste the Web App URL below:
-  window.GSHEETS_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwzh2ECTZ3Uyfdqcq04DiACwhmwvtQM87jfWwMrepuDKU5cGNNbXMe9Bt0q3i6WnJeu/exec";
+    // ---- Supabase config ----
+    // ✅ Remplace si besoin par les valeurs de ton projet Supabase
+    window.SUPABASE_URL = "https://chcxnelbzebowqtjikxk.supabase.co";
+    window.SUPABASE_ANON_KEY = "sb_publishable_1V9BCbSu_Sto6EYCp9xWJQ_FXATOu41";
 
-  (function(){
-    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    const supabaseClient = window.supabase.createClient(
+      window.SUPABASE_URL,
+      window.SUPABASE_ANON_KEY,
+      {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        }
+      }
+    );
+    window.supabaseClient = supabaseClient;
 
-async function callApi(payload) {
-  const baseUrl = window.GSHEETS_WEBAPP_URL;
-  if (!baseUrl || baseUrl.includes("PASTE_YOUR_GOOGLE_APPS_SCRIPT_WEBAPP_URL_HERE")) {
-    return { isOk:false, error:"GSHEETS_WEBAPP_URL not set" };
-  }
+    // --- Auth UI helpers ---
+    function showAuthOverlay(show){
+      const el = document.getElementById('auth-overlay');
+      if (!el) return;
+      el.classList.toggle('hidden', !show);
+    }
 
-  const action = payload && payload.action ? payload.action : "list";
-  const record = payload && payload.record ? payload.record : null;
+    async function getSession(){
+      const { data, error } = await supabaseClient.auth.getSession();
+      if (error) console.warn('getSession error', error);
+      return data ? data.session : null;
+    }
 
-  const b64 = (str) => btoa(unescape(encodeURIComponent(str)));
-
-  let url = `${baseUrl}?action=${encodeURIComponent(action)}&_ts=${Date.now()}`;
-
-  if (record) {
-    const packed = { record };
-    url += `&payload=${encodeURIComponent(b64(JSON.stringify(packed)))}`;
-  }
-
-  return await new Promise((resolve) => {
-    const cbName = `__gs_cb_${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
-
-    const cleanup = (script) => {
-      try { delete window[cbName]; } catch(e) { window[cbName] = undefined; }
-      if (script && script.parentNode) script.parentNode.removeChild(script);
-    };
-
-    const timeout = setTimeout(() => {
-      cleanup(script);
-      resolve({ isOk:false, error:"Timeout (no response from Apps Script)" });
-    }, 12000);
-
-    window[cbName] = (resp) => {
-      clearTimeout(timeout);
-      cleanup(script);
-
-      if (resp && resp.ok) {
-        resolve({ isOk:true, value: resp.data });
+    window.sendMagicLink = async function(){
+      const emailEl = document.getElementById('auth-email');
+      const statusEl = document.getElementById('auth-status');
+      const email = (emailEl?.value || '').trim();
+      if (!email){
+        if (statusEl) statusEl.textContent = "✗ Saisis un email";
+        return;
+      }
+      if (statusEl) statusEl.textContent = "Envoi du lien de connexion...";
+      const redirectTo = window.location.origin + window.location.pathname;
+      const { error } = await supabaseClient.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: redirectTo }
+      });
+      if (error){
+        console.error(error);
+        if (statusEl) statusEl.textContent = "✗ Erreur : " + error.message;
       } else {
-        resolve({ isOk:false, error: (resp && resp.error) ? resp.error : "Unknown error" });
+        if (statusEl) statusEl.textContent = "✓ Lien envoyé. Ouvre ton email et clique sur le lien.";
       }
     };
 
-    const script = document.createElement("script");
-    script.src = `${url}&callback=${encodeURIComponent(cbName)}`;
-    script.onerror = () => {
-      clearTimeout(timeout);
-      cleanup(script);
-      resolve({ isOk:false, error:"Network/Script load error (JSONP)" });
+    window.logout = async function(){
+      await supabaseClient.auth.signOut();
     };
-    document.head.appendChild(script);
-  });
-}
 
-    function stableHash(obj){
-      try {
-        return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
-      } catch(e) { return String(Math.random()); }
-    }
-
-    function makeSdk(){
+    // ---- dataSdk (Supabase) : mêmes fonctions que ton ancien Google Sheets SDK ----
+    (function(){
       let handler = null;
-      let pollMs = 2000;
-      let timer = null;
-      let lastHash = null;
+      let channel = null;
+
+      function normalizeRow(r){
+        // l'app utilise __backendId pour update/delete : on le mappe sur l'id UUID Supabase
+        return { ...r, __backendId: r.id };
+      }
 
       async function list(){
-        return await callApi({ action:"list" });
+        const { data, error } = await supabaseClient
+          .from('records')
+          .select('*')
+          .order('createdAt', { ascending: true });
+
+        if (error) return { isOk:false, error: error.message };
+        return { isOk:true, value: (data || []).map(normalizeRow) };
       }
 
-      async function tick(){
+      async function emit(){
         if (!handler || !handler.onDataChanged) return;
         const r = await list();
-        if (!r.isOk) return;
-        const records = r.value || [];
-        const h = stableHash(records.map(x => [x.__backendId, x.updatedAt, x.createdAt, x.id]));
-        if (h !== lastHash){
-          lastHash = h;
-          handler.onDataChanged(records);
-        }
+        if (r.isOk) handler.onDataChanged(r.value || []);
       }
 
-      return {
+      window.dataSdk = {
         async init(h){
           handler = h;
-          // immediate load
-          const first = await list();
-          if (!first.isOk) return first;
-          handler.onDataChanged(first.value || []);
-          // start polling
-          if (timer) clearInterval(timer);
-          timer = setInterval(() => { tick(); }, pollMs);
+
+          // session obligatoire (policies authenticated)
+          const session = await getSession();
+          if (!session) return { isOk:false, error:"Not authenticated" };
+
+          // load initial
+          await emit();
+
+          // realtime
+          try {
+            if (channel) await supabaseClient.removeChannel(channel);
+          } catch(e) {}
+
+          channel = supabaseClient
+            .channel('records-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'records' }, () => {
+              emit();
+            })
+            .subscribe();
+
           return { isOk:true, value:true };
         },
+
         async create(record){
-          return await callApi({ action:"create", record });
+          const payload = { ...record };
+          // id est un UUID côté Supabase : on le laisse générer
+          delete payload.id;
+          delete payload.__backendId;
+
+          const { data, error } = await supabaseClient
+            .from('records')
+            .insert(payload)
+            .select('*')
+            .single();
+
+          if (error) return { isOk:false, error: error.message };
+          return { isOk:true, value: normalizeRow(data) };
         },
+
         async update(record){
-          return await callApi({ action:"update", record });
+          const id = record.__backendId || record.id;
+          if (!id) return { isOk:false, error:"Missing id" };
+
+          const payload = { ...record };
+          delete payload.__backendId;
+          payload.updatedAt = new Date().toISOString();
+
+          const { data, error } = await supabaseClient
+            .from('records')
+            .update(payload)
+            .eq('id', id)
+            .select('*')
+            .single();
+
+          if (error) return { isOk:false, error: error.message };
+          return { isOk:true, value: normalizeRow(data) };
         },
+
         async delete(record){
-          return await callApi({ action:"delete", record });
+          const id = record.__backendId || record.id;
+          if (!id) return { isOk:false, error:"Missing id" };
+
+          const { error } = await supabaseClient
+            .from('records')
+            .delete()
+            .eq('id', id);
+
+          if (error) return { isOk:false, error: error.message };
+          return { isOk:true, value:true };
         }
       };
-    }
 
-    // Expose as window.dataSdk
-    window.dataSdk = window.dataSdk || makeSdk();
-  })();
+      // Auth state changes => show/hide overlay, re-init data
+      supabaseClient.auth.onAuthStateChange(async (_event, session) => {
+        showAuthOverlay(!session);
+        // (re)sync when logged-in
+        if (session && handler && handler.onDataChanged){
+          await emit();
+        }
+      });
+
+      // Initial overlay state
+      getSession().then(s => showAuthOverlay(!s));
+    })();
   </script>
 
 <script>
@@ -543,14 +621,12 @@ delete safeData.weekKey;
 delete safeData.id;
 
 const record = {
-  id: `${type}_${selectedDayOfWeek}_${Date.now()}`,
   type: type,
   dayOfWeek: Number(selectedDayOfWeek),
-  day_of_week: Number(selectedDayOfWeek),
   weekKey: weekKeyToMonday(getWeekKey(currentWeekOffset)),
-  week_key: weekKeyToMonday(getWeekKey(currentWeekOffset)),
   ...safeData,
-  createdAt: new Date().toISOString()
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString()
 };
 
 
@@ -590,9 +666,9 @@ if (result.isOk) {
   showSavingIndicator('✓ Mis à jour');
 
   // 🔥 Mise à jour immédiate de l’interface
-  const row = Number(record.__backendId);
+  const bid = String(record.__backendId);
   currentRecords = currentRecords.map(r =>
-    Number(r.__backendId) === row ? { ...r, ...record } : r
+    String(r.__backendId) === bid ? { ...r, ...record } : r
   );
   loadDataFromRecords(currentRecords);
   render();
@@ -622,8 +698,8 @@ if (result.isOk) {
   showSavingIndicator('✓ Supprimé');
 
   // 🔥 Mise à jour immédiate de l’interface
-  const row = Number(record.__backendId);
-  currentRecords = currentRecords.filter(r => Number(r.__backendId) !== row);
+  const bid = String(record.__backendId);
+  currentRecords = currentRecords.filter(r => String(r.__backendId) !== bid);
   loadDataFromRecords(currentRecords);
   render();
 
@@ -2472,8 +2548,8 @@ const record = currentRecords.find(r =>
     };
 
     window.deleteReservationSalle = async function(backendId) {
-      const bid = Number(backendId);
-      const record = currentRecords.find(r => Number(r.__backendId) === bid);
+      const bid = String(backendId);
+      const record = currentRecords.find(r => String(r.__backendId) === bid);
       if (record) {
         await deleteData(record);
       }
@@ -2544,8 +2620,8 @@ const record = currentRecords.find(r =>
     };
 
     window.deleteDiversGpro = async function(backendId) {
-      const bid = Number(backendId);
-      const record = currentRecords.find(r => Number(r.__backendId) === bid);
+      const bid = String(backendId);
+      const record = currentRecords.find(r => String(r.__backendId) === bid);
       if (record) {
         await deleteData(record);
       }
@@ -2798,8 +2874,8 @@ window.deletePresenceMedical = async function(backendId) {
     };
 
     window.deleteVoiesBarrees = async function(backendId) {
-      const bid = Number(backendId);
-      const record = currentRecords.find(r => Number(r.__backendId) === bid);
+      const bid = String(backendId);
+      const record = currentRecords.find(r => String(r.__backendId) === bid);
       if (record) {
         await deleteData(record);
       }
@@ -2926,8 +3002,8 @@ window.deletePresenceMedical = async function(backendId) {
     };
 
     window.deleteEnginsIndispo = async function(backendId) {
-      const bid = Number(backendId);
-      const record = currentRecords.find(r => Number(r.__backendId) === bid);
+      const bid = String(backendId);
+      const record = currentRecords.find(r => String(r.__backendId) === bid);
       if (record) {
         await deleteData(record);
       }
