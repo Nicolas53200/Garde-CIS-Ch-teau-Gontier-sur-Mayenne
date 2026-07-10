@@ -1,0 +1,12 @@
+{
+  "id": "mayenne",
+  "nom": "Mayenne",
+  "departement": "Mayenne (53)",
+  "type_cis": "cis_mixte",
+  "database": "databases/mayenne.db",
+  "interface": "interfaces/Rassemblement_CIS_Mixte.html",
+  "admin_code": "MAYENNE53",
+  "ville": "Mayenne (53)",
+  "actif": true,
+  "description": ""
+}

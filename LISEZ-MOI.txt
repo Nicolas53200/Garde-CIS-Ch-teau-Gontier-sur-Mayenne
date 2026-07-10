@@ -1,0 +1,151 @@
+═══════════════════════════════════════════════════════════════
+   IGNIS NOVA - Application multi-CIS
+   Lis-moi avant de démarrer
+═══════════════════════════════════════════════════════════════
+
+
+▌ STRUCTURE DE CE DOSSIER
+══════════════════════════
+
+Place tous ces fichiers dans UN SEUL dossier. Idéalement :
+
+    C:\IGNIS\        (PAS dans OneDrive — voir avertissement ci-dessous)
+
+Structure attendue :
+
+    📁 IGNIS\
+      ├── IGNIS.html                ← portail d'accueil (le nouveau)
+      ├── serveur_multi_cis.py      ← serveur Flask (version patchée)
+      ├── settings.json             ← config serveur (port, code admin...)
+      ├── IGNIS_demarrer.vbs        ← démarrage silencieux (RECOMMANDÉ)
+      ├── IGNIS_arreter.vbs         ← arrêt du serveur
+      ├── lancer_multi_cis.bat      ← démarrage avec console (debug)
+      │
+      ├── 📁 interfaces\
+      │     ├── Rassemblement_CIS_Volontaire.html        ← inclus
+      │     ├── Rassemblement_CIS_Mixte.html             ← À AJOUTER
+      │     └── Rassemblement_CIS_Mixte_24h_BASE_A_ADAPTER.html  ← À AJOUTER
+      │
+      ├── 📁 configs\              ← créé automatiquement
+      ├── 📁 databases\            ← créé automatiquement
+      └── 📁 images\               ← créé automatiquement
+
+
+▌ FICHIERS À AJOUTER MANUELLEMENT
+═════════════════════════════════
+
+Le dossier `interfaces/` doit contenir tous les modèles d'interface
+CIS. Je n'ai inclus que le Volontaire dans cette archive. Si tu as
+les autres (Mixte, Mixte 24h), copie-les depuis ton ancien dossier
+dans le dossier `interfaces/` de cette nouvelle installation.
+
+Noms ATTENDUS par les configs par défaut :
+  - Rassemblement_CIS_Volontaire.html          (présent)
+  - Rassemblement_CIS_Mixte.html               (à copier)
+  - Rassemblement_CIS_Mixte_24h_BASE_A_ADAPTER.html  (à copier)
+
+
+⚠️  AVERTISSEMENT ONEDRIVE
+══════════════════════════
+
+NE METS PAS le dossier IGNIS dans OneDrive (ni sur ton Bureau si
+ton Bureau est synchronisé avec OneDrive).
+
+OneDrive synchronise en arrière-plan et peut :
+  - Verrouiller les fichiers pendant la synchro
+  - Marquer des fichiers comme "cloud uniquement" → Python ne peut
+    pas les lire
+  - Créer des conflits si tu modifies depuis deux endroits
+
+→ Place le dossier dans C:\IGNIS\ ou C:\Users\<toi>\Documents\IGNIS\
+
+
+▌ DÉMARRER L'APPLICATION
+════════════════════════
+
+Méthode 1 (recommandée) — sans console :
+  Double-clic sur  IGNIS_demarrer.vbs
+  Le serveur démarre en arrière-plan et le navigateur s'ouvre tout
+  seul sur http://localhost:5010
+
+Méthode 2 — avec console (utile pour voir les erreurs) :
+  Double-clic sur  lancer_multi_cis.bat
+  Une fenêtre noire s'ouvre, garde-la ouverte.
+  Va ensuite manuellement sur http://localhost:5010
+
+
+▌ ARRÊTER L'APPLICATION
+═══════════════════════
+
+Si lancée avec IGNIS_demarrer.vbs :
+  Double-clic sur  IGNIS_arreter.vbs
+
+Si lancée avec lancer_multi_cis.bat :
+  Ferme la fenêtre noire de la console
+
+
+▌ DÉMARRAGE AUTOMATIQUE AVEC WINDOWS
+════════════════════════════════════
+
+Pour qu'IGNIS se lance automatiquement à chaque démarrage du PC :
+
+  1. Appuie sur  Windows + R
+  2. Tape :  shell:startup  puis Entrée
+  3. Une fenêtre Explorateur s'ouvre (dossier de démarrage Windows)
+  4. Glisse un RACCOURCI de IGNIS_demarrer.vbs dans ce dossier
+     (clic droit sur le VBS → Créer un raccourci → glisser le raccourci)
+
+
+▌ CODE ADMINISTRATEUR
+═════════════════════
+
+Le code super-admin (pour créer/gérer les centres) est dans
+settings.json. Par défaut :
+
+    "super_admin_code": "IGNISNOVA"
+
+Tu peux le changer en éditant settings.json puis en redémarrant
+le serveur.
+
+
+▌ AJOUTER UN CENTRE DE SECOURS
+══════════════════════════════
+
+  1. Ouvre http://localhost:5010
+  2. Clique sur  ⚙️ Gérer les centres  en haut à droite
+  3. Saisis le code super-admin (IGNISNOVA)
+  4. Remplis le formulaire et choisis le modèle d'interface
+  5. Clique sur Créer le centre
+
+Le centre apparaîtra dans le carrousel d'accueil. Tu cliques dessus,
+tu arrives sur son interface (vierge, prête à l'emploi).
+
+Pour revenir au portail depuis une interface CIS : clique sur le
+bouton 🚒 (petite voiture rouge) en bas à droite.
+
+
+▌ EN CAS DE PROBLÈME
+════════════════════
+
+Page blanche au clic sur un centre :
+  → Vérifie que le fichier d'interface (interfaces/Rassemblement_CIS_*.html)
+    correspondant au type du centre existe bien.
+  → Ouvre F12 → Console pour voir les erreurs JavaScript.
+
+"CIS inconnu" :
+  → Le fichier configs/<id>.json n'existe pas. Recrée le centre
+    via le portail.
+
+Serveur inaccessible :
+  → Vérifie que le serveur tourne (Gestionnaire des tâches → cherche
+    python.exe ou pythonw.exe).
+  → Vérifie que le port dans settings.json correspond à ce que tu
+    tapes dans le navigateur.
+
+Météo / vigicrues ne s'affichent pas :
+  → Le serveur patche automatiquement les URLs hardcodées de :8080
+    vers le port de settings.json. Vérifie que le serveur tourne avec
+    la nouvelle version de serveur_multi_cis.py (cette archive).
+
+
+═══════════════════════════════════════════════════════════════

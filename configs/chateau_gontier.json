@@ -1,0 +1,12 @@
+{
+  "id": "chateau_gontier",
+  "nom": "CIS Château-Gontier-sur-Mayenne",
+  "departement": "53",
+  "type_cis": "cis_mixte",
+  "database": "databases/chateau_gontier.db",
+  "interface": "interfaces/Rassemblement_CIS_Mixte.html",
+  "admin_code": "CHATEAU53",
+  "ville": "Château-Gontier-sur-Mayenne",
+  "actif": true,
+  "description": ""
+}
