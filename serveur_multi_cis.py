@@ -615,6 +615,14 @@ def serve_interface_asset(path):
     return send_from_directory(str(INTERFACE_DIR), path)
 
 
+ANIMATIONS_DIR = BASE_DIR / "animations"
+
+@app.route("/animations/<path:path>")
+def serve_animation(path):
+    """Sert les fichiers d'animation (personnages animés)."""
+    return send_from_directory(str(ANIMATIONS_DIR), path)
+
+
 @app.route("/api/status", methods=["GET"])
 def api_status():
     try:
