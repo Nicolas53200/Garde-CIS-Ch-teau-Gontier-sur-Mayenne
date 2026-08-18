@@ -9100,6 +9100,7 @@ function renderTVDashboard() {
       window._feedbackList.push({ type, auteur: auteur || 'Anonyme', message, date: new Date().toISOString(), reponse: '' });
       await saveFeedbackList();
       showSavingIndicator('✓ Feedback envoyé, merci !');
+      showIgnisAnimation();
       switchAdminTab('feedback');
     };
 
@@ -9130,6 +9131,40 @@ function renderTVDashboard() {
         if (result?.isOk && result.value) currentRecords = upsertRecordByBackendId(currentRecords, result.value);
       }
     }
+
+    // ── Animation personnage Ignis ─────────────────────────
+    window.showIgnisAnimation = function() {
+      const old = document.getElementById('ignis-anim-overlay');
+      if (old) old.remove();
+      const overlay = document.createElement('div');
+      overlay.id = 'ignis-anim-overlay';
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);opacity:0;transition:opacity 0.3s;cursor:pointer;';
+      overlay.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;gap:12px;animation:ignisPopIn 0.4s cubic-bezier(.34,1.56,.64,1) both;">
+          <video autoplay muted playsinline style="width:min(280px,70vw);border-radius:20px;box-shadow:0 0 60px rgba(239,68,68,0.4),0 0 120px rgba(59,130,246,0.2);">
+            <source src="/animations/ignis_ok.mp4" type="video/mp4">
+          </video>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:clamp(18px,3vw,28px);color:#f59e0b;letter-spacing:2px;text-shadow:0 0 20px rgba(245,158,11,0.5);">
+            MERCI POUR TON FEEDBACK ! 🔥
+          </div>
+        </div>
+      `;
+      const style = document.createElement('style');
+      style.textContent = '@keyframes ignisPopIn{0%{transform:scale(0.3) translateY(40px);opacity:0}100%{transform:scale(1) translateY(0);opacity:1}}';
+      overlay.appendChild(style);
+      document.body.appendChild(overlay);
+      requestAnimationFrame(() => { overlay.style.opacity = '1'; });
+      overlay.onclick = function() {
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.remove(), 300);
+      };
+      setTimeout(function() {
+        if (document.getElementById('ignis-anim-overlay')) {
+          overlay.style.opacity = '0';
+          setTimeout(() => overlay.remove(), 300);
+        }
+      }, 4500);
+    };
 
     // ── Aide / FAQ ───────────────────────────────────────
     window.ouvrirAide = function() {
