@@ -1518,6 +1518,9 @@ function getRecordWeekKey(record) {
         return true; // Pas de date du tout : on garde
       });
       window.presenceMedicalList = dedupeListById(window.presenceMedicalList);
+
+      // Purge automatique des fiches carrousel dont la dateFin est dépassée
+      purgeExpiredCarouselFiches();
     }
 
     function dedupeListById(list) {
@@ -1532,6 +1535,43 @@ function getRecordWeekKey(record) {
       return out;
     }
 
+    // Purge automatique des fiches carrousel dont la dateFin est dépassée
+    function purgeExpiredCarouselFiches() {
+      const today = new Date(); today.setHours(0,0,0,0);
+      function isExpired(fiche) {
+        if (!fiche.dateFin) return false;
+        const fin = new Date(fiche.dateFin); fin.setHours(23,59,59,999);
+        return fin < today;
+      }
+      // Purger les fiches communication
+      const expiredFiches = (window.carouselFiches || []).filter(isExpired);
+      expiredFiches.forEach(function(fiche) {
+        const rec = currentRecords.find(r => r.__backendId === fiche.__backendId || r.id === fiche.id);
+        if (rec && window.dataSdk && window.dataSdk.isServerOnline()) {
+          window.dataSdk.delete({ __backendId: rec.__backendId }).then(function(result) {
+            if (result && result.isOk) {
+              currentRecords = currentRecords.filter(r => String(r.__backendId) !== String(rec.__backendId));
+              console.log('[Carrousel] Fiche expirée supprimée :', fiche.titre || fiche.id);
+            }
+          }).catch(function(){});
+        }
+      });
+      window.carouselFiches = (window.carouselFiches || []).filter(f => !isExpired(f));
+      // Purger les fiches amicale
+      const expiredAmicale = (window.carouselAmicale || []).filter(isExpired);
+      expiredAmicale.forEach(function(fiche) {
+        const rec = currentRecords.find(r => r.__backendId === fiche.__backendId || r.id === fiche.id);
+        if (rec && window.dataSdk && window.dataSdk.isServerOnline()) {
+          window.dataSdk.delete({ __backendId: rec.__backendId }).then(function(result) {
+            if (result && result.isOk) {
+              currentRecords = currentRecords.filter(r => String(r.__backendId) !== String(rec.__backendId));
+              console.log('[Carrousel] Fiche amicale expirée supprimée :', fiche.titre || fiche.id);
+            }
+          }).catch(function(){});
+        }
+      });
+      window.carouselAmicale = (window.carouselAmicale || []).filter(f => !isExpired(f));
+    }
 
 
     // ===== APTITUDES / POPUP PERSONNEL - AJOUT CHG =====
@@ -7466,7 +7506,7 @@ function renderTVDashboard() {
                     });
                   }
                   if(gli){
-                    html += '<div style="font-size:'+(f*.68)+'px;color:#fca5a5;line-height:1.3;margin-top:'+(enginsIndispo.length?4:0)+'px;">'+esc(gli)+'</div>';
+                    html += '<div style="font-size:'+(f*.68)+'px;color:#fca5a5;line-height:1.3;margin-top:'+(enginsIndispo.length?4:0)+'px;">'+esc(gli).replace(/\n/g,'<br>')+'</div>';
                   }
                   if(!enginsIndispo.length && !gli){
                     html += '<div style="font-size:'+(f*.64)+'px;color:#4a6080;font-style:italic;">Aucune anomalie</div>';
@@ -7518,7 +7558,7 @@ function renderTVDashboard() {
                   });
                 }
                 if(gli){
-                  html += '<div style="font-size:14px;color:#fca5a5;line-height:1.35;margin-top:'+(enginsIndispo.length?4:0)+'px;">'+esc(gli)+'</div>';
+                  html += '<div style="font-size:14px;color:#fca5a5;line-height:1.35;margin-top:'+(enginsIndispo.length?4:0)+'px;">'+esc(gli).replace(/\n/g,'<br>')+'</div>';
                 }
                 if(!hasGliContent){
                   html += '<div style="font-size:14px;color:#4a6080;font-style:italic;">Aucune anomalie GLI</div>';

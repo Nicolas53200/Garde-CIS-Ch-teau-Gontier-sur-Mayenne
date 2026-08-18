@@ -1429,6 +1429,9 @@ function getRecordWeekKey(record) {
       window.presenceMedicalList = dedupeListById(window.presenceMedicalList);
       window.formationList = dedupeListById(window.formationList);
 
+      // Purge automatique des fiches carrousel dont la dateFin est dépassée
+      purgeExpiredCarouselFiches();
+
       // Reconstruire availablePersonnel depuis les records du serveur
       var personnelFromServer = data.filter(function(r){ return r && r.type === 'personnel'; });
       if (Array.isArray(data) && personnelFromServer.length > 0) {
@@ -1463,6 +1466,44 @@ function getRecordWeekKey(record) {
         out.push(it);
       }
       return out;
+    }
+
+    // Purge automatique des fiches carrousel dont la dateFin est dépassée
+    function purgeExpiredCarouselFiches() {
+      const today = new Date(); today.setHours(0,0,0,0);
+      function isExpired(fiche) {
+        if (!fiche.dateFin) return false;
+        const fin = new Date(fiche.dateFin); fin.setHours(23,59,59,999);
+        return fin < today;
+      }
+      // Purger les fiches communication
+      const expiredFiches = (window.carouselFiches || []).filter(isExpired);
+      expiredFiches.forEach(function(fiche) {
+        const rec = currentRecords.find(r => r.__backendId === fiche.__backendId || r.id === fiche.id);
+        if (rec && window.dataSdk && window.dataSdk.isServerOnline()) {
+          window.dataSdk.delete({ __backendId: rec.__backendId }).then(function(result) {
+            if (result && result.isOk) {
+              currentRecords = currentRecords.filter(r => String(r.__backendId) !== String(rec.__backendId));
+              console.log('[Carrousel] Fiche expirée supprimée :', fiche.titre || fiche.id);
+            }
+          }).catch(function(){});
+        }
+      });
+      window.carouselFiches = (window.carouselFiches || []).filter(f => !isExpired(f));
+      // Purger les fiches amicale
+      const expiredAmicale = (window.carouselAmicale || []).filter(isExpired);
+      expiredAmicale.forEach(function(fiche) {
+        const rec = currentRecords.find(r => r.__backendId === fiche.__backendId || r.id === fiche.id);
+        if (rec && window.dataSdk && window.dataSdk.isServerOnline()) {
+          window.dataSdk.delete({ __backendId: rec.__backendId }).then(function(result) {
+            if (result && result.isOk) {
+              currentRecords = currentRecords.filter(r => String(r.__backendId) !== String(rec.__backendId));
+              console.log('[Carrousel] Fiche amicale expirée supprimée :', fiche.titre || fiche.id);
+            }
+          }).catch(function(){});
+        }
+      });
+      window.carouselAmicale = (window.carouselAmicale || []).filter(f => !isExpired(f));
     }
 
 
@@ -5535,7 +5576,7 @@ function renderDiversSlide() {
                 html += '<div style="background:rgba(239,68,68,.05);border-top:3px solid #f97316;border-radius:10px;padding:10px;overflow:hidden;display:flex;flex-direction:column;gap:4px;">';
                 html += '<div style="font-size:14px;color:#f97316;font-weight:900;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">🔧 Notes GLI</div>';
                 if(gli){
-                  html += '<div style="font-size:13px;color:#fed7aa;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;">'+esc(gli)+'</div>';
+                  html += '<div style="font-size:13px;color:#fed7aa;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;">'+esc(gli).replace(/\n/g,'<br>')+'</div>';
                 } else {
                   html += '<div style="font-size:13px;color:#4a6080;font-style:italic;">Aucune note GLI</div>';
                 }
