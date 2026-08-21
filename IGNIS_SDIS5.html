@@ -192,28 +192,16 @@ saveAgenda=function(){
  }
 };
 
-// Envoyer un statut périodique à Communication
+// Statut périodique léger — toutes les 30s (au lieu de 8s)
 setInterval(()=>{
  if(syncChannel){
   try{
    const screenName=document.querySelector('#screenName')?.textContent||'Accueil SDIS';
-   syncChannel.postMessage({
-    type:'screen-status',
-    source:'sdis',
-    screenId:SCREEN_ID,
-    screenName:screenName,
-    screenType:'sdis',
-    pubCount:publications.length,
-    ts:Date.now()
-   });
+   syncChannel.postMessage({type:'screen-status',source:'sdis',screenId:SCREEN_ID,screenName:screenName,screenType:'sdis',pubCount:publications.length,ts:Date.now()});
   }catch(e){}
  }
- // Vérifier si Communication est toujours là
- if(comConnected&&Date.now()-lastComSync>20000){
-  comConnected=false;
-  updateScreenSyncUI('lost','Communication déconnectée');
- }
-},8000);
+ if(comConnected&&Date.now()-lastComSync>90000){comConnected=false;updateScreenSyncUI('lost','Communication déconnectée')}
+},30000);
 
 function updateScreenSyncUI(event,message){
  const el=document.querySelector('#syncState');

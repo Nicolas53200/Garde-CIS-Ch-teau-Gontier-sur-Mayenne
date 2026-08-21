@@ -201,33 +201,28 @@ function exportForScreens(){
  toast('Export JSON téléchargé');
 }
 
-// ===== Module de synchronisation IGNIS Communication ↔ SDIS =====
+// ===== Module de synchronisation IGNIS Communication ↔ SDIS (optimisé) =====
 const SYNC_CHANNEL_NAME='ignis-sync';
 let syncChannel=null,connectedScreens=new Map(),syncReady=false;
+let _broadcastTimer=null,_lastSyncCount=-1;
 
 function initSync(){
  try{
   syncChannel=new BroadcastChannel(SYNC_CHANNEL_NAME);
   syncReady=true;
   syncChannel.onmessage=handleSyncMessage;
-  // Ping initial pour détecter les écrans déjà ouverts
   syncChannel.postMessage({type:'ping',source:'communication',ts:Date.now()});
-  // Ping périodique toutes les 5 secondes
+  // Ping léger toutes les 30s (au lieu de 5s)
   setInterval(()=>{
    if(!syncReady)return;
    syncChannel.postMessage({type:'ping',source:'communication',ts:Date.now()});
-   // Nettoyer les écrans inactifs (pas de pong depuis 15s)
    const now=Date.now();
-   for(const[id,info]of connectedScreens){if(now-info.lastSeen>15000)connectedScreens.delete(id)}
+   for(const[id,info]of connectedScreens){if(now-info.lastSeen>60000)connectedScreens.delete(id)}
    updateSyncUI();
-  },5000);
+  },30000);
  }catch(e){console.warn('BroadcastChannel non disponible:',e)}
- // Écouter les changements localStorage depuis d'autres onglets (SDIS modifie l'agenda)
  window.addEventListener('storage',e=>{
-  if(e.key==='ignis_sdis_agenda_v1'){
-   log('Agenda modifié depuis un écran SDIS.');
-   renderAll();
-  }
+  if(e.key==='ignis_sdis_agenda_v1'){log('Agenda modifié depuis un écran SDIS.');renderAll()}
  });
 }
 
@@ -241,8 +236,7 @@ function handleSyncMessage(e){
     updateSyncUI();
    }break;
   case'agenda-update':
-   // Un écran SDIS a modifié son agenda local
-   log(`Agenda mis à jour depuis l'écran « ${msg.screenName||'inconnu'} ».`);
+   log(`Agenda mis à jour depuis « ${msg.screenName||'inconnu'} ».`);
    toast('Agenda reçu de '+msg.screenName);
    renderAll();
    break;
@@ -253,89 +247,76 @@ function handleSyncMessage(e){
  }
 }
 
-function broadcastToScreens(){
- if(!syncReady||!syncChannel)return;
- try{
-  // Envoyer les publications aux écrans
-  syncChannel.postMessage({
-   type:'pub-update',
-   source:'communication',
-   ts:Date.now(),
-   publications:pubs,
-   campaigns:campaigns.filter(c=>['planned','published'].includes(c.status))
-  });
- }catch(e){console.warn('Erreur broadcast:',e)}
+// Broadcast différé : attend 500ms pour regrouper les sauvegardes rapides
+function scheduleBroadcast(){
+ if(_broadcastTimer)clearTimeout(_broadcastTimer);
+ _broadcastTimer=setTimeout(()=>{
+  _broadcastTimer=null;
+  if(!syncReady||!syncChannel||connectedScreens.size===0)return;
+  try{
+   // Envoyer uniquement les métadonnées, PAS les données base64 des médias
+   const lightPubs=pubs.map(p=>({id:p.id,title:p.title,message:p.message,type:p.type,priority:p.priority,
+    template:p.template,palette:p.palette,colors:p.colors,settings:p.settings,
+    startDate:p.startDate,endDate:p.endDate,duration:p.duration,status:p.status,
+    targets:p.targets,link:p.link,source:p.source,mediaId:p.mediaId}));
+   syncChannel.postMessage({type:'pub-update',source:'communication',ts:Date.now(),publications:lightPubs});
+  }catch(e){console.warn('Erreur broadcast:',e)}
+ },500);
 }
 
-// Générer des publications écran depuis les campagnes ciblant SDIS/CIS
+// Générer des publications écran (uniquement appelé à la sauvegarde de campagne)
 function generateScreenPubsFromCampaigns(){
  const screenChannels=['sdis','cis'];
  campaigns.forEach(c=>{
   if(!['planned','published'].includes(c.status))return;
-  const activeScreenChannels=(c.channels||[]).filter(ch=>screenChannels.includes(ch));
-  activeScreenChannels.forEach(ch=>{
+  (c.channels||[]).filter(ch=>screenChannels.includes(ch)).forEach(ch=>{
    const data=c.channelData?.[ch];
    if(!data||!data.text)return;
    const existingId='camp_'+c.id+'_'+ch;
-   const existing=pubs.find(p=>p.id===existingId);
-   const pub={
-    id:existingId,
-    title:c.title||'Campagne sans titre',
-    message:data.text||c.summary||'',
-    type:c.category||'Actualité',
-    priority:'normal',
-    mediaId:c.mediaId||'',
-    template:'hero',
-    palette:'ignis',
-    colors:null,
+   const pub={id:existingId,title:c.title||'Campagne sans titre',message:data.text||c.summary||'',
+    type:c.category||'Actualité',priority:'normal',mediaId:c.mediaId||'',template:'hero',palette:'ignis',colors:null,
     settings:{mediaPosition:'background',textAlign:'left',titleSize:'large',overlay:'medium',showLogo:true,showDate:true,showQr:!!c.link},
-    startDate:data.publishAt||c.start||'',
-    endDate:c.end||'',
-    duration:12,
+    startDate:data.publishAt||c.start||'',endDate:c.end||'',duration:12,
     status:c.status==='published'?'published':'planned',
     targets:ch==='sdis'?['Accueil SDIS','Personnel SDIS']:['Tous les CIS'],
-    link:c.link||'',
-    source:'campaign',
-    campaignId:c.id
-   };
-   if(existing){pubs=pubs.map(p=>p.id===existingId?pub:p)}
-   else{pubs.push(pub)}
+    link:c.link||'',source:'campaign',campaignId:c.id};
+   const i=pubs.findIndex(p=>p.id===existingId);
+   if(i>=0)pubs[i]=pub; else pubs.push(pub);
   });
  });
 }
 
 function updateSyncUI(){
  const count=connectedScreens.size;
+ if(count===_lastSyncCount)return; // Pas de changement, pas de DOM update
+ _lastSyncCount=count;
  const el=document.querySelector('#syncStatus');
- if(el){
-  if(count>0){
-   const names=[...connectedScreens.values()].map(s=>s.name).join(', ');
-   el.innerHTML=`<span class="online">● ${count} écran${count>1?'s':''} connecté${count>1?'s':''}</span><br><small>${names}</small>`;
-  }else{
-   el.innerHTML='<span style="color:#fbbf24">○ Aucun écran détecté</span><br><small>Ouvrez IGNIS SDIS dans un autre onglet</small>';
-  }
+ if(!el)return;
+ if(count>0){
+  const names=[...connectedScreens.values()].map(s=>s.name).join(', ');
+  el.innerHTML=`<span class="online">● ${count} écran${count>1?'s':''} connecté${count>1?'s':''}</span><br><small>${names}</small>`;
+ }else{
+  el.innerHTML='<span style="color:#fbbf24">○ Aucun écran détecté</span><br><small>Ouvrez IGNIS SDIS dans un autre onglet</small>';
  }
 }
 
-// Surcharger save() pour ajouter la synchronisation
+// Surcharger save() — broadcast différé, pas de génération systématique
 const _baseSave=save;
 save=function(){
- try{generateScreenPubsFromCampaigns()}catch(e){console.warn('generateScreenPubs:',e)}
  _baseSave();
- try{broadcastToScreens()}catch(e){console.warn('broadcast:',e)}
+ scheduleBroadcast();
 };
 
-// Surcharger saveCampaign() pour ajouter la synchro
+// Surcharger saveCampaign() — génère les pubs écran uniquement ici
 const _baseSaveCampaign=saveCampaign;
 saveCampaign=function(){
  try{
+  generateScreenPubsFromCampaigns();
   _baseSaveCampaign();
  }catch(e){
   console.error('Erreur saveCampaign:',e);
-  // Fallback : sauvegarder directement même si la synchro échoue
   try{
-   syncCurrentChannel();
-   syncCampaignDraft();
+   syncCurrentChannel();syncCampaignDraft();
    const id=document.querySelector('#campaignId').value;
    campaignDraft.id=id||rid();
    campaignDraft.updated=new Date().toISOString();
@@ -343,12 +324,10 @@ saveCampaign=function(){
    else campaigns.unshift(structuredClone(campaignDraft));
    localStorage.setItem(CAMPAIGN_KEY,JSON.stringify(campaigns));
    log(`Campagne enregistrée : ${campaignDraft.title||'Sans titre'}.`);
-   _baseSave();
-   closeCampaignEditor();
-   toast('Campagne enregistrée');
-  }catch(e2){console.error('Fallback saveCampaign:',e2);toast('Erreur lors de l\'enregistrement')}
+   _baseSave();closeCampaignEditor();toast('Campagne enregistrée');
+  }catch(e2){console.error('Fallback:',e2);toast('Erreur lors de l\'enregistrement')}
  }
- try{broadcastToScreens()}catch(e){console.warn('broadcast:',e)}
+ scheduleBroadcast();
 };
 
 initSync();
