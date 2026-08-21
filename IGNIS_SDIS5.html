@@ -161,13 +161,11 @@ function handleScreenSyncMessage(e){
   case'pub-update':
    if(msg.source==='communication'&&msg.publications){
     // Recevoir les publications depuis Communication
-    try{
-     localStorage.setItem(STORAGE,JSON.stringify(msg.publications));
-     comConnected=true;
-     lastComSync=Date.now();
-     loadData();
-     updateScreenSyncUI('sync','Publications mises à jour — '+msg.publications.length+' contenu(s)');
-    }catch(err){console.warn('Erreur synchro:',err)}
+    try{localStorage.setItem(STORAGE,JSON.stringify(msg.publications))}catch(e){console.warn('localStorage:',e)}
+    comConnected=true;
+    lastComSync=Date.now();
+    loadData();
+    updateScreenSyncUI('sync','Publications mises à jour — '+msg.publications.length+' contenu(s)');
    }
    break;
  }

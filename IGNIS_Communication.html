@@ -254,12 +254,16 @@ function scheduleBroadcast(){
   _broadcastTimer=null;
   if(!syncReady||!syncChannel||connectedScreens.size===0)return;
   try{
-   // Envoyer uniquement les métadonnées, PAS les données base64 des médias
-   const lightPubs=pubs.map(p=>({id:p.id,title:p.title,message:p.message,type:p.type,priority:p.priority,
-    template:p.template,palette:p.palette,colors:p.colors,settings:p.settings,
-    startDate:p.startDate,endDate:p.endDate,duration:p.duration,status:p.status,
-    targets:p.targets,link:p.link,source:p.source,mediaId:p.mediaId}));
-   syncChannel.postMessage({type:'pub-update',source:'communication',ts:Date.now(),publications:lightPubs});
+   // Envoyer les publications avec les données média résolues pour l'affichage SDIS
+   const syncPubs=pubs.map(p=>{
+    const m=p.mediaId?mediaObj(p.mediaId):null;
+    return{id:p.id,title:p.title,message:p.message,type:p.type,priority:p.priority,
+     template:p.template,palette:p.palette,colors:p.colors,settings:p.settings,
+     startDate:p.startDate,endDate:p.endDate,duration:p.duration,status:p.status,
+     targets:p.targets,link:p.link,source:p.source,mediaId:p.mediaId,
+     media:m?{data:m.data,type:m.type}:undefined};
+   });
+   syncChannel.postMessage({type:'pub-update',source:'communication',ts:Date.now(),publications:syncPubs});
   }catch(e){console.warn('Erreur broadcast:',e)}
  },500);
 }
@@ -307,26 +311,12 @@ save=function(){
  scheduleBroadcast();
 };
 
-// Surcharger saveCampaign() — génère les pubs écran uniquement ici
+// Surcharger saveCampaign() — génère les pubs écran après sauvegarde
 const _baseSaveCampaign=saveCampaign;
 saveCampaign=function(){
- try{
-  generateScreenPubsFromCampaigns();
-  _baseSaveCampaign();
- }catch(e){
-  console.error('Erreur saveCampaign:',e);
-  try{
-   syncCurrentChannel();syncCampaignDraft();
-   const id=document.querySelector('#campaignId').value;
-   campaignDraft.id=id||rid();
-   campaignDraft.updated=new Date().toISOString();
-   if(id)campaigns=campaigns.map(c=>c.id===id?structuredClone(campaignDraft):c);
-   else campaigns.unshift(structuredClone(campaignDraft));
-   localStorage.setItem(CAMPAIGN_KEY,JSON.stringify(campaigns));
-   log(`Campagne enregistrée : ${campaignDraft.title||'Sans titre'}.`);
-   _baseSave();closeCampaignEditor();toast('Campagne enregistrée');
-  }catch(e2){console.error('Fallback:',e2);toast('Erreur lors de l\'enregistrement')}
- }
+ _baseSaveCampaign();
+ // Générer les publications écran depuis les campagnes (maintenant à jour)
+ try{generateScreenPubsFromCampaigns();localStorage.setItem(K.pubs,JSON.stringify(pubs))}catch(e){console.warn('Sync pubs écran:',e)}
  scheduleBroadcast();
 };
 
