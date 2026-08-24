@@ -1134,8 +1134,8 @@ function getRecordWeekKey(record) {
       window.vigilanceMayenne = window.vigilanceMayenne || null;
       window.vigilanceManualConfig = window.vigilanceManualConfig || { meteoLevel:'INFO', meteoText:'', vigicruesLevel:'INFO', vigicruesText:'' };
       window.diversNotes = '';
-      // My Maps (Voies barrées) - coller ici l'URL d'intégration (iframe src)
-      window.myMapsVoiesEmbedUrl = window.myMapsVoiesEmbedUrl = "https://www.google.com/maps/d/embed?mid=1BLouBo_DoGq77hva42Ya_SzdsRFBKlY&ehbc=2E312F&noprof=1";
+      // My Maps (Voies barrées) - conserver l'URL chargée depuis la DB, sinon URL par défaut
+      if (!window.myMapsVoiesEmbedUrl) window.myMapsVoiesEmbedUrl = "https://www.google.com/maps/d/embed?mid=1BLouBo_DoGq77hva42Ya_SzdsRFBKlY&ehbc=2E312F&noprof=1";
       window.amicaleNotes = '';
       window.gliNotes = '';
       window.notesDiverses = '';
