@@ -8883,12 +8883,12 @@ function renderTVDashboard() {
       html += '<div>';
       html += '<h3 style="color:#f59e0b;font-size:13px;font-weight:700;margin:0 0 12px 0;text-transform:uppercase;">URL Carte Google MyMaps</h3>';
       html += '<div style="background:#16213e;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;">';
-      html += '<label style="color:#94a3b8;font-size:12px;">URL embed (attribut src)</label>';
-      html += '<input id="admin-map-url" value="' + safeUrl + '" placeholder="https://www.google.com/maps/d/embed?mid=..." style="' + iStyle + '">';
-      html += '<p style="color:#64748b;font-size:11px;margin:0;">Comment obtenir l’URL :<br>';
-      html += '1. Ouvrez votre carte sur <b style="color:#94a3b8;">Google MyMaps</b><br>';
-      html += '2. Menu <b style="color:#94a3b8;">Partager</b> puis <b style="color:#94a3b8;">Incorporer</b><br>';
-      html += '3. Copiez l’URL dans src="..."</p>';
+      html += ‘<label style="color:#94a3b8;font-size:12px;">URL embed ou code &lt;iframe&gt; complet</label>’;
+      html += ‘<input id="admin-map-url" value="’ + safeUrl + ‘" placeholder="Collez l\’URL ou le code <iframe> de Google MyMaps" style="’ + iStyle + ‘">’;
+      html += ‘<p style="color:#64748b;font-size:11px;margin:0;">Comment obtenir l’URL :<br>’;
+      html += ‘1. Ouvrez votre carte sur <b style="color:#94a3b8;">Google MyMaps</b><br>’;
+      html += ‘2. Menu <b style="color:#94a3b8;">Partager</b> puis <b style="color:#94a3b8;">Incorporer</b><br>’;
+      html += ‘3. Copiez le code complet (l’URL sera extraite automatiquement)</p>’;
       html += '<button onclick="adminSaveCarte()" style="padding:10px;border-radius:8px;background:#f59e0b;color:#1a1a2e;font-size:13px;font-weight:700;border:none;cursor:pointer;">Enregistrer</button>';
       html += '<button onclick="adminTestCarte()" style="padding:8px;border-radius:8px;background:#0f1629;color:#64748b;font-size:12px;border:1px solid #ffffff20;cursor:pointer;">Tester l’URL dans un nouvel onglet</button>';
       html += '</div></div>';
@@ -8905,9 +8905,25 @@ function renderTVDashboard() {
       return html;
     }
 
+    // Extraire l'URL src depuis un code <iframe> collé, et nettoyer /u/N/ (session Google)
+    function cleanMapUrl(raw) {
+      raw = (raw || '').trim();
+      // Si l'utilisateur a collé le code <iframe ...>, extraire l'attribut src
+      var m = raw.match(/src\s*=\s*["']([^"']+)["']/i);
+      if (m) raw = m[1];
+      // Supprimer /u/0/, /u/1/, etc. (chemin session Google, ne marche pas en iframe anonyme)
+      raw = raw.replace(/\/d\/u\/\d+\/embed/, '/d/embed');
+      return raw.trim();
+    }
+
     window.adminSaveCarte = async function() {
-      var url = (document.getElementById('admin-map-url')?.value || '').trim();
-      if (!url) { showSavingIndicator('✗ Saisissez une URL', true); return; }
+      var rawInput = (document.getElementById('admin-map-url')?.value || '').trim();
+      if (!rawInput) { showSavingIndicator('✗ Saisissez une URL', true); return; }
+      var url = cleanMapUrl(rawInput);
+      if (!url || url.indexOf('google.com/maps') === -1) { showSavingIndicator('✗ URL Google Maps invalide', true); return; }
+      // Mettre à jour le champ avec l'URL nettoyée pour que l'utilisateur voie la correction
+      var inputEl = document.getElementById('admin-map-url');
+      if (inputEl) inputEl.value = url;
       window.myMapsVoiesEmbedUrl = url;
       var existing = currentRecords.find(function(r){ return r && r.type==='config' && r.zone==='mapUrl'; });
       if (existing) {
@@ -8923,8 +8939,9 @@ function renderTVDashboard() {
     };
 
     window.adminTestCarte = function() {
-      var url = (document.getElementById('admin-map-url')?.value || '').trim();
-      if (!url) { showSavingIndicator('✗ Saisissez une URL', true); return; }
+      var rawInput = (document.getElementById('admin-map-url')?.value || '').trim();
+      if (!rawInput) { showSavingIndicator('✗ Saisissez une URL', true); return; }
+      var url = cleanMapUrl(rawInput);
       window.open(url, '_blank');
     };
 
