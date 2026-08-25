@@ -6852,14 +6852,14 @@ function renderDiversSlide() {
       html += '<div>';
       html += '<h3 style="color:#f59e0b;font-size:13px;font-weight:700;margin:0 0 12px 0;text-transform:uppercase;">URL Carte Google MyMaps</h3>';
       html += '<div style="background:#16213e;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;">';
-      html += ‘<label style="color:#94a3b8;font-size:12px;">URL embed ou code &lt;iframe&gt; complet</label>’;
-      html += ‘<input id="admin-map-url" value="’ + safeUrl + ‘" placeholder="Collez l\’URL ou le code <iframe> de Google MyMaps" style="’ + iStyle + ‘">’;
-      html += ‘<p style="color:#64748b;font-size:11px;margin:0;">Comment obtenir l’URL :<br>’;
-      html += ‘1. Ouvrez votre carte sur <b style="color:#94a3b8;">Google MyMaps</b><br>’;
-      html += ‘2. Menu <b style="color:#94a3b8;">Partager</b> puis <b style="color:#94a3b8;">Incorporer</b><br>’;
-      html += ‘3. Copiez le code complet (l’URL sera extraite automatiquement)</p>’;
+      html += '<label style="color:#94a3b8;font-size:12px;">URL embed ou code &lt;iframe&gt; complet</label>';
+      html += '<input id="admin-map-url" value="' + safeUrl + '" placeholder="Collez l\'URL ou le code <iframe> de Google MyMaps" style="' + iStyle + '">';
+      html += '<p style="color:#64748b;font-size:11px;margin:0;">Comment obtenir l\x27URL :<br>';
+      html += '1. Ouvrez votre carte sur <b style="color:#94a3b8;">Google MyMaps</b><br>';
+      html += '2. Menu <b style="color:#94a3b8;">Partager</b> puis <b style="color:#94a3b8;">Incorporer</b><br>';
+      html += '3. Copiez le code complet (l\x27URL sera extraite automatiquement)</p>';
       html += '<button onclick="adminSaveCarte()" style="padding:10px;border-radius:8px;background:#f59e0b;color:#1a1a2e;font-size:13px;font-weight:700;border:none;cursor:pointer;">Enregistrer</button>';
-      html += '<button onclick="adminTestCarte()" style="padding:8px;border-radius:8px;background:#0f1629;color:#64748b;font-size:12px;border:1px solid #ffffff20;cursor:pointer;">Tester l’URL dans un nouvel onglet</button>';
+      html += '<button onclick="adminTestCarte()" style="padding:8px;border-radius:8px;background:#0f1629;color:#64748b;font-size:12px;border:1px solid #ffffff20;cursor:pointer;">Tester l\'URL dans un nouvel onglet</button>';
       html += '</div></div>';
       // Colonne droite : apercu
       html += '<div>';
